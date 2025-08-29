@@ -11,14 +11,15 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
   DropdownMenuSub,
-  DropdownMenuSubTrigger,
   DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useEffect, useState } from "react";
 import { useLocalModels } from "@/hooks/useLocalModels";
 import { useLocalLMSModels } from "@/hooks/useLMStudioModels";
+import { useLiteLLMModels } from "@/hooks/useLiteLLMModels";
 import { useLanguageModelsByProviders } from "@/hooks/useLanguageModelsByProviders";
 
 import { LocalModel } from "@/ipc/ipc_types";
@@ -57,13 +58,30 @@ export function ModelPicker() {
     loadModels: loadLMStudioModels,
   } = useLocalLMSModels();
 
+  const litellmProvider = providers?.find(
+    (provider) =>
+      provider.id === "litellm" ||
+      (provider.type === "custom" &&
+        provider.apiBaseUrl &&
+        provider.name.toLowerCase().includes("litellm")),
+  );
+
+  // LiteLLM Models Hook - pass the provider ID if found
+  const {
+    models: litellmModels,
+    loading: litellmLoading,
+    error: litellmError,
+    loadModels: loadLiteLLMModels,
+  } = useLiteLLMModels(litellmProvider?.id);
+
   // Load models when the dropdown opens
   useEffect(() => {
     if (open) {
       loadOllamaModels();
       loadLMStudioModels();
+      loadLiteLLMModels();
     }
-  }, [open, loadOllamaModels, loadLMStudioModels]);
+  }, [open, loadOllamaModels, loadLMStudioModels, loadLiteLLMModels]);
 
   // Get display name for the selected model
   const getModelDisplayName = () => {
@@ -81,7 +99,13 @@ export function ModelPicker() {
         )?.displayName || selectedModel.name // Fallback to path if not found
       );
     }
-
+    if (selectedModel.provider === "litellm") {
+      return (
+        litellmModels.find(
+          (model: LocalModel) => model.modelName === selectedModel.name,
+        )?.displayName || selectedModel.name
+      );
+    }
     // For cloud models, look up in the modelsByProviders data
     if (modelsByProviders && modelsByProviders[selectedModel.provider]) {
       const customFoundModel = modelsByProviders[selectedModel.provider].find(
@@ -114,6 +138,8 @@ export function ModelPicker() {
     !ollamaLoading && !ollamaError && ollamaModels.length > 0;
   const hasLMStudioModels =
     !lmStudioLoading && !lmStudioError && lmStudioModels.length > 0;
+  const hasLiteLLMModels =
+    !litellmLoading && !litellmError && litellmModels.length > 0;
 
   if (!settings) {
     return null;
@@ -305,7 +331,7 @@ export function ModelPicker() {
             <div className="flex flex-col items-start">
               <span>Local models</span>
               <span className="text-xs text-muted-foreground">
-                LM Studio, Ollama
+                LM Studio, Ollama, LiteLLM
               </span>
             </div>
           </DropdownMenuSubTrigger>
@@ -464,6 +490,87 @@ export function ModelPicker() {
                         {/* Display the user-friendly name */}
                         <span>{model.displayName}</span>
                         {/* Show the path as secondary info */}
+                        <span className="text-xs text-muted-foreground truncate">
+                          {model.modelName}
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+
+            {/* LiteLLM Models SubMenu */}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger
+                disabled={litellmLoading && !hasLiteLLMModels}
+                className="w-full font-normal"
+              >
+                <div className="flex flex-col items-start">
+                  <span>LiteLLM</span>
+                  {litellmLoading ? (
+                    <span className="text-xs text-muted-foreground">
+                      Loading...
+                    </span>
+                  ) : litellmError ? (
+                    <span className="text-xs text-red-500">Error loading</span>
+                  ) : !hasLiteLLMModels ? (
+                    <span className="text-xs text-muted-foreground">
+                      None available
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {litellmModels.length} models
+                    </span>
+                  )}
+                </div>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56">
+                <DropdownMenuLabel>LiteLLM Models</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                {litellmLoading && litellmModels.length === 0 ? (
+                  <div className="text-xs text-center py-2 text-muted-foreground">
+                    Loading models...
+                  </div>
+                ) : litellmError ? (
+                  <div className="px-2 py-1.5 text-sm text-red-600">
+                    <div className="flex flex-col">
+                      <span>Error loading models</span>
+                      <span className="text-xs text-muted-foreground">
+                        {litellmError.message}
+                      </span>
+                    </div>
+                  </div>
+                ) : !hasLiteLLMModels ? (
+                  <div className="px-2 py-1.5 text-sm">
+                    <div className="flex flex-col">
+                      <span>No models available</span>
+                      <span className="text-xs text-muted-foreground">
+                        Ensure LiteLLM is running and configured.
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  litellmModels.map((model: LocalModel) => (
+                    <DropdownMenuItem
+                      key={`litellm-${model.modelName}`}
+                      className={
+                        selectedModel.provider === "litellm" &&
+                        selectedModel.name === model.modelName
+                          ? "bg-secondary"
+                          : ""
+                      }
+                      onClick={() => {
+                        onModelSelect({
+                          name: model.modelName,
+                          provider: "litellm",
+                        });
+                        setOpen(false);
+                      }}
+                    >
+                      <div className="flex flex-col">
+                        <span>{model.displayName}</span>
                         <span className="text-xs text-muted-foreground truncate">
                           {model.modelName}
                         </span>

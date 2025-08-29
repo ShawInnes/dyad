@@ -59,6 +59,7 @@ export type LargeLanguageModel = z.infer<typeof LargeLanguageModelSchema>;
  */
 export const ProviderSettingSchema = z.object({
   apiKey: SecretSchema.optional(),
+  apiBaseUrl: SecretSchema.optional(),
 });
 
 /**

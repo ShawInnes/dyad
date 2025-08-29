@@ -77,6 +77,7 @@ const validInvokeChannels = [
   "supabase:unset-app-project",
   "local-models:list-ollama",
   "local-models:list-lmstudio",
+  "local-models:list-litellm",
   "window:minimize",
   "window:maximize",
   "window:close",

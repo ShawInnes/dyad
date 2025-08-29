@@ -8,3 +8,7 @@ export const localModelsErrorAtom = atom<Error | null>(null);
 export const lmStudioModelsAtom = atom<LocalModel[]>([]);
 export const lmStudioModelsLoadingAtom = atom<boolean>(false);
 export const lmStudioModelsErrorAtom = atom<Error | null>(null);
+
+export const litellmModelsAtom = atom<LocalModel[]>([]);
+export const litellmModelsLoadingAtom = atom<boolean>(false);
+export const litellmModelsErrorAtom = atom<Error | null>(null);

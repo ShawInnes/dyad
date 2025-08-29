@@ -15,6 +15,8 @@ import { LanguageModel } from "ai";
 import { createOllamaProvider } from "./ollama_provider";
 import { getOllamaApiUrl } from "../handlers/local_model_ollama_handler";
 
+import { createLiteLLMProvider } from "./litellm_provider";
+
 const dyadEngineUrl = process.env.DYAD_ENGINE_URL;
 const dyadGatewayUrl = process.env.DYAD_GATEWAY_URL;
 
@@ -256,6 +258,24 @@ function getRegularModelClient(
             `Custom provider ${model.provider} is missing the API Base URL.`,
           );
         }
+
+        // Special handling for LiteLLM providers
+        if (
+          providerConfig.name.toLowerCase().includes("litellm") ||
+          providerConfig.apiBaseUrl.includes("litellm")
+        ) {
+          const provider = createLiteLLMProvider({
+            baseURL: providerConfig.apiBaseUrl,
+            apiKey: apiKey,
+          });
+          return {
+            modelClient: {
+              model: provider(model.name),
+            },
+            backupModelClients: [],
+          };
+        }
+
         // Assume custom providers are OpenAI compatible for now
         const provider = createOpenAICompatible({
           name: providerConfig.id,

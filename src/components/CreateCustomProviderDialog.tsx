@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,23 @@ interface CreateCustomProviderDialogProps {
   onClose: () => void;
   onSuccess: () => void;
 }
+
+const PROVIDER_PRESETS = {
+  litellm: {
+    id: "litellm",
+    name: "LiteLLM",
+    apiBaseUrl: "http://localhost:4000",
+    envVarName: "LITELLM_API_KEY",
+    description: "LiteLLM proxy server for multiple AI providers",
+  },
+  openai_compatible: {
+    id: "openai-compatible",
+    name: "OpenAI Compatible",
+    apiBaseUrl: "https://api.example.com/v1",
+    envVarName: "API_KEY",
+    description: "Any OpenAI-compatible API endpoint",
+  },
+};
 
 export function CreateCustomProviderDialog({
   isOpen,
@@ -67,6 +84,16 @@ export function CreateCustomProviderDialog({
     }
   };
 
+  const applyPreset = (
+    preset: (typeof PROVIDER_PRESETS)[keyof typeof PROVIDER_PRESETS],
+  ) => {
+    setId(preset.id);
+    setName(preset.name);
+    setApiBaseUrl(preset.apiBaseUrl);
+    setEnvVarName(preset.envVarName);
+    setErrorMessage(""); // Clear any existing errors
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
@@ -78,6 +105,32 @@ export function CreateCustomProviderDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          <div className="space-y-2">
+            <Label>Quick Setup Templates</Label>
+            <div className="grid grid-cols-1 gap-2">
+              {Object.entries(PROVIDER_PRESETS).map(([key, preset]) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-auto p-3 flex justify-between items-start text-left"
+                  onClick={() => applyPreset(preset)}
+                  disabled={isCreating}
+                >
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium">{preset.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {preset.description}
+                    </span>
+                    <span className="text-xs text-muted-foreground/70 mt-1">
+                      {preset.apiBaseUrl}
+                    </span>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="id">Provider ID</Label>
             <Input
@@ -92,7 +145,6 @@ export function CreateCustomProviderDialog({
               A unique identifier for this provider (no spaces).
             </p>
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="name">Display Name</Label>
             <Input
@@ -107,7 +159,6 @@ export function CreateCustomProviderDialog({
               The name that will be displayed in the UI.
             </p>
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="apiBaseUrl">API Base URL</Label>
             <Input
@@ -122,7 +173,6 @@ export function CreateCustomProviderDialog({
               The base URL for the API endpoint.
             </p>
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="envVarName">Environment Variable (Optional)</Label>
             <Input
@@ -136,7 +186,6 @@ export function CreateCustomProviderDialog({
               Environment variable name for the API key.
             </p>
           </div>
-
           {(errorMessage || error) && (
             <div className="text-sm text-red-500">
               {errorMessage ||
@@ -145,7 +194,6 @@ export function CreateCustomProviderDialog({
                   : "Failed to create custom provider")}
             </div>
           )}
-
           <div className="flex justify-end gap-2">
             <Button
               type="button"

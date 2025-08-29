@@ -1,12 +1,11 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { useSettings } from "@/hooks/useSettings";
 import { useLanguageModelProviders } from "@/hooks/useLanguageModelProviders";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import {} from "@/components/ui/accordion";
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -15,7 +14,10 @@ import { UserSettings } from "@/lib/schemas";
 
 import { ProviderSettingsHeader } from "./ProviderSettingsHeader";
 import { ApiKeyConfiguration } from "./ApiKeyConfiguration";
+import { ApiBaseUrlConfiguration } from "./ApiBaseUrlConfiguration";
+
 import { ModelsSection } from "./ModelsSection";
+import { LiteLLMModelsSection } from "@/components/settings/LiteLLMModelsSection.tsx";
 
 interface ProviderSettingsPageProps {
   provider: string;
@@ -42,9 +44,17 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
   const supportsCustomModels =
     providerData?.type === "custom" || providerData?.type === "cloud";
 
+  // Check if this is a LiteLLM provider
+  const isLiteLLMProvider =
+    providerData?.type === "custom" &&
+    (providerData.name.toLowerCase().includes("litellm") ||
+      providerData.apiBaseUrl?.includes("litellm"));
+
   const isDyad = provider === "auto";
 
   const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiBaseUrlInput, setApiBaseUrlInput] = useState("");
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const router = useRouter();
@@ -56,6 +66,7 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
   const providerWebsiteUrl = isDyad
     ? "https://academy.dyad.sh/settings"
     : providerData?.websiteUrl;
+  const providerApiBaseUrl = providerData?.apiBaseUrl;
   const hasFreeTier = isDyad ? false : providerData?.hasFreeTier;
   const envVarName = isDyad ? undefined : providerData?.envVarName;
 
@@ -123,6 +134,59 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
     } catch (error: any) {
       console.error("Error deleting API key:", error);
       setSaveError(error.message || "Failed to delete API key.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // --- Save Handler for API Base URL ---
+  const handleSaveApiBaseUrl = async () => {
+    if (!apiBaseUrlInput) {
+      setSaveError("API Base URL cannot be empty.");
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const settingsUpdate: Partial<UserSettings> = {
+        providerSettings: {
+          ...settings?.providerSettings,
+          [provider]: {
+            ...settings?.providerSettings?.[provider],
+            // Note: This assumes we extend the schema to include apiBaseUrl
+            apiBaseUrl: {
+              value: apiBaseUrlInput,
+            },
+          },
+        },
+      };
+      await updateSettings(settingsUpdate);
+      setApiBaseUrlInput(""); // Clear input on success
+    } catch (error: any) {
+      console.error("Error saving API base URL:", error);
+      setSaveError(error.message || "Failed to save API base URL.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // --- Delete Handler for API Base URL ---
+  const handleDeleteApiBaseUrl = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await updateSettings({
+        providerSettings: {
+          ...settings?.providerSettings,
+          [provider]: {
+            ...settings?.providerSettings?.[provider],
+            apiBaseUrl: undefined,
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error("Error deleting API base URL:", error);
+      setSaveError(error.message || "Failed to delete API base URL.");
     } finally {
       setIsSaving(false);
     }
@@ -248,20 +312,41 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
             </AlertDescription>
           </Alert>
         ) : (
-          <ApiKeyConfiguration
-            provider={provider}
-            providerDisplayName={providerDisplayName}
-            settings={settings}
-            envVars={envVars}
-            envVarName={envVarName}
-            isSaving={isSaving}
-            saveError={saveError}
-            apiKeyInput={apiKeyInput}
-            onApiKeyInputChange={setApiKeyInput}
-            onSaveKey={handleSaveKey}
-            onDeleteKey={handleDeleteKey}
-            isDyad={isDyad}
-          />
+          <>
+            <ApiKeyConfiguration
+              provider={provider}
+              providerDisplayName={providerDisplayName}
+              settings={settings}
+              envVars={envVars}
+              envVarName={envVarName}
+              isSaving={isSaving}
+              saveError={saveError}
+              apiKeyInput={apiKeyInput}
+              onApiKeyInputChange={setApiKeyInput}
+              onSaveKey={handleSaveKey}
+              onDeleteKey={handleDeleteKey}
+              isDyad={isDyad}
+            />
+
+            {/* Add API Base URL Configuration for custom providers */}
+            {supportsCustomModels && providerData && (
+              <div className="mt-6">
+                <ApiBaseUrlConfiguration
+                  provider={provider}
+                  providerDisplayName={providerDisplayName}
+                  settings={settings}
+                  defaultApiBaseUrl={providerApiBaseUrl}
+                  isSaving={isSaving}
+                  saveError={saveError}
+                  apiBaseUrlInput={apiBaseUrlInput}
+                  onApiBaseUrlInputChange={setApiBaseUrlInput}
+                  onSaveUrl={handleSaveApiBaseUrl}
+                  onDeleteUrl={handleDeleteApiBaseUrl}
+                  isDyad={isDyad}
+                />
+              </div>
+            )}
+          </>
         )}
 
         {isDyad && !settingsLoading && (
@@ -280,10 +365,13 @@ export function ProviderSettingsPage({ provider }: ProviderSettingsPageProps) {
           </div>
         )}
 
-        {/* Conditionally render CustomModelsSection */}
-        {supportsCustomModels && providerData && (
+        {/* Conditionally render models section based on provider type */}
+        {isLiteLLMProvider ? (
+          <LiteLLMModelsSection providerId={providerData.id} />
+        ) : supportsCustomModels && providerData ? (
           <ModelsSection providerId={providerData.id} />
-        )}
+        ) : null}
+
         <div className="h-24"></div>
       </div>
     </div>
